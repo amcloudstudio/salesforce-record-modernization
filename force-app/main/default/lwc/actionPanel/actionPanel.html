@@ -1,0 +1,40 @@
+<template>
+    <lightning-card title="Statistics &amp; Actions" icon-name="standard:dashboard">
+        <div class="slds-p-horizontal_small">
+            <template lwc:if={hasStatistics}>
+                <div class="slds-grid slds-wrap slds-gutters slds-m-bottom_medium">
+                    <div class="slds-col slds-size_1-of-2 slds-p-bottom_small">
+                        <p class="slds-text-body_small slds-text-color_weak">Related Customers</p>
+                        <p class="slds-text-heading_medium">{statistics.relatedAccountCount}</p>
+                    </div>
+                    <div class="slds-col slds-size_1-of-2 slds-p-bottom_small">
+                        <p class="slds-text-body_small slds-text-color_weak">Related Opportunities</p>
+                        <p class="slds-text-heading_medium">{statistics.relatedOpportunityCount}</p>
+                    </div>
+                    <div class="slds-col slds-size_1-of-2">
+                        <p class="slds-text-body_small slds-text-color_weak">Total Opportunity Amount</p>
+                        <lightning-formatted-number
+                            class="slds-text-heading_medium"
+                            value={statistics.totalOpportunityAmount}
+                            format-style="currency"
+                        ></lightning-formatted-number>
+                    </div>
+                    <div class="slds-col slds-size_1-of-2">
+                        <p class="slds-text-body_small slds-text-color_weak">Approval Progress</p>
+                        <p class="slds-text-heading_medium">
+                            {statistics.completedApprovalStepCount} / {statistics.totalApprovalStepCount}
+                        </p>
+                    </div>
+                </div>
+            </template>
+
+            <lightning-button
+                variant="brand"
+                label="Advance Approval"
+                onclick={handleAdvanceApproval}
+                disabled={isAdvanceDisabled}
+                class="slds-m-top_small"
+            ></lightning-button>
+        </div>
+    </lightning-card>
+</template>

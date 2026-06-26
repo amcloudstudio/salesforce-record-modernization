@@ -1,0 +1,20 @@
+<template>
+    <lightning-card title="Related Opportunities" icon-name="standard:opportunity">
+        <div class="slds-p-horizontal_small">
+            <template lwc:if={hasOpportunities}>
+                <lightning-datatable
+                    key-field="opportunityId"
+                    data={opportunities}
+                    columns={columns}
+                    hide-checkbox-column
+                    show-row-number-column={false}
+                ></lightning-datatable>
+            </template>
+            <template lwc:else>
+                <p class="slds-text-body_small slds-text-color_weak">
+                    No related opportunities.
+                </p>
+            </template>
+        </div>
+    </lightning-card>
+</template>

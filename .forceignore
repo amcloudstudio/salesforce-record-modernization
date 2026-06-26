@@ -1,0 +1,8 @@
+# SFDX source format ignore rules
+**/jsconfig.json
+**/.eslintrc.json
+**/__tests__/**
+
+# LWC configuration files
+**/.sfdx/**
+**/.localdevserver/**
