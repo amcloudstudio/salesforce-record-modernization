@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <label>Approval Step</label>
+    <pluralLabel>Approval Steps</pluralLabel>
+    <nameField>
+        <label>Approval Step Name</label>
+        <type>AutoNumber</type>
+        <displayFormat>AS-{0000}</displayFormat>
+    </nameField>
+    <deploymentStatus>Deployed</deploymentStatus>
+    <sharingModel>ControlledByParent</sharingModel>
+    <enableActivities>false</enableActivities>
+    <enableHistory>false</enableHistory>
+    <enableReports>true</enableReports>
+    <enableSearch>false</enableSearch>
+    <description>Ordered step in an Engagement's approval timeline.</description>
+</CustomObject>
