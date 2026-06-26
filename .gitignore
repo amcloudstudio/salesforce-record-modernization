@@ -1,0 +1,9 @@
+.sfdx/
+.localdevserver/
+.vscode/
+node_modules/
+.eslintcache
+*.log
+.DS_Store
+coverage/
+mdapi_output/
