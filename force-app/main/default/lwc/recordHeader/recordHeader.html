@@ -1,0 +1,28 @@
+<template>
+    <div class="slds-page-header" lwc:if={engagement}>
+        <div class="slds-page-header__row">
+            <div class="slds-page-header__col-title">
+                <div class="slds-media">
+                    <div class="slds-media__body">
+                        <div class="slds-page-header__name">
+                            <span class="slds-page-header__name-title">
+                                <h1>
+                                    <span>Engagement</span>
+                                    <span class="slds-page-header__title slds-truncate" title={engagement.name}>
+                                        {engagement.name}
+                                    </span>
+                                </h1>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="slds-page-header__col-actions">
+                <div class="slds-page-header__controls">
+                    <span class={statusBadgeClass}>{engagement.status}</span>
+                    <span class="slds-badge slds-m-left_x-small">{engagement.priority} priority</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</template>

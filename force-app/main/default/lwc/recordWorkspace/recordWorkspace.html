@@ -1,0 +1,34 @@
+<template>
+    <div class="slds-card slds-p-around_small">
+        <template lwc:if={hasError}>
+            <div class="slds-notify slds-notify_alert slds-theme_alert-texture slds-theme_error" role="alert">
+                <span>{error}</span>
+            </div>
+        </template>
+
+        <template lwc:if={hasWorkspace}>
+            <c-record-header engagement={engagement}></c-record-header>
+
+            <div class="slds-grid slds-wrap slds-gutters slds-m-top_small">
+                <div class="slds-col slds-size_1-of-1 slds-large-size_2-of-3">
+                    <div class="slds-m-bottom_medium">
+                        <c-related-accounts accounts={relatedAccounts}></c-related-accounts>
+                    </div>
+                    <div class="slds-m-bottom_medium">
+                        <c-related-opportunities opportunities={relatedOpportunities}></c-related-opportunities>
+                    </div>
+                    <div class="slds-m-bottom_medium">
+                        <c-approval-timeline steps={approvalSteps}></c-approval-timeline>
+                    </div>
+                </div>
+                <div class="slds-col slds-size_1-of-1 slds-large-size_1-of-3">
+                    <c-action-panel
+                        engagement-id={recordId}
+                        statistics={statistics}
+                        onapprovaladvanced={handleApprovalAdvanced}
+                    ></c-action-panel>
+                </div>
+            </div>
+        </template>
+    </div>
+</template>
