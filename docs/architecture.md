@@ -1,84 +1,154 @@
 # Architecture
 
-## Overview
+## Problem
 
-Engagement Hub is a demo Lightning application that replaces a legacy,
-monolithic record-detail page with a componentized Lightning Web Component
-(LWC) experience. It is an original, fictitious use case — it does not
-contain any employer code, data, or business logic.
+Legacy Salesforce record pages often render every related list and field in a
+single, dense view — difficult to navigate, slow to load, and impossible to
+extend without touching a monolithic Visualforce page or a sprawling page
+layout.
 
-The domain model centers on a custom object, `Engagement__c`, representing a
-generic business record (e.g. a deal, project, or case) that moves through a
-multi-step approval process and has related Accounts and Opportunities.
+## Solution
 
-## Layering
+Engagement Hub replaces that pattern with a componentized Lightning Web
+Component page backed by a clean, four-layer Apex architecture. Each layer
+has exactly one responsibility and communicates only with the layer directly
+below it.
+
+---
+
+## Layer Map
 
 ```
-LWC (presentation only)
-   |  no SOQL, no business logic
-   v
-Apex Controller   -- thin pass-through, input shaping only
-   v
-Apex Service      -- business logic, validation, orchestration
-   v
-Apex Repository   -- SOQL only, field-level selection, bulk-safe
-   v
-Database
+LWC  ──────────────────────────────────────────────────────────
+  recordWorkspace  (container, @wire, refreshApex)
+    ├── recordHeader             (@api engagement)
+    ├── relatedAccounts          (@api accounts)
+    ├── relatedOpportunities     (@api opportunities)
+    ├── approvalTimeline         (@api steps)
+    └── actionPanel              (@api statistics, engagementId)
+         └── imperative call: EngagementController.advanceApproval
+
+Controller ─────────────────────────────────────────────────────
+  EngagementController
+    @AuraEnabled(cacheable=true) getEngagementWorkspace(Id)
+    @AuraEnabled                 advanceApproval(Id)
+
+Service ─────────────────────────────────────────────────────────
+  EngagementService
+    getWorkspace(Id)    → EngagementWorkspaceDTO
+    advanceApproval(Id) → EngagementWorkspaceDTO
+
+Repository ──────────────────────────────────────────────────────
+  EngagementRepository       (Engagement__c SOQL / DML)
+  AccountRepository          (Engagement_Account__c SOQL)
+  OpportunityRepository      (Opportunity SOQL)
+  ApprovalStepRepository     (Approval_Step__c SOQL / DML)
+
+Database ────────────────────────────────────────────────────────
 ```
 
-Each layer has a single responsibility:
+---
 
-- **LWC** renders data and dispatches user intent. It never queries the
-  database directly and contains no business rules.
-- **Controller** (`@AuraEnabled` boundary) validates that it is being called
-  with sane inputs and delegates to a Service. No business logic lives here.
-- **Service** implements business rules (status transitions, approval
-  progression, statistics calculation) and enforces CRUD/FLS checks before
-  delegating data access to a Repository.
-- **Repository** is the only layer that issues SOQL/DML. It selects only the
-  fields it needs, is bulk-safe, and returns sObjects or thin projections to
-  the Service layer, which maps them into DTOs for the Controller.
+## Layer Responsibilities
 
-## Data Model
+### LWC
 
-- `Engagement__c` — the primary record (Name, Status, Stage, Priority, dates,
-  notes).
-- `Engagement_Account__c` — junction object linking `Engagement__c` to
-  standard `Account` records ("related customers").
-- `Opportunity.Engagement__c` — lookup field added to standard `Opportunity`
-  linking it back to an `Engagement__c`.
-- `Approval_Step__c` — child records representing ordered steps in the
-  approval timeline (Step Order, Status, Approver Name, Completed Date).
+- Renders data received via `@api` properties.
+- Dispatches user intent via custom events or imperative Apex calls.
+- Contains **no SOQL** and **no business logic**.
+- `recordWorkspace` makes one `@wire` call on load and calls `refreshApex`
+  after the user advances an approval step, so all panels update atomically.
 
-## DTOs
+### Controller
 
-All data crossing the Controller/LWC boundary uses explicit wrapper classes
-(never `Map<String, Object>`):
+- The only `@AuraEnabled` boundary in the project.
+- Accepts an `Id` parameter, delegates to `EngagementService`, and returns a
+  DTO.
+- Catches `EngagementServiceException` (and any unexpected exception) and
+  re-throws as `AuraHandledException` with a user-presentable message.
+- Contains **no business logic** and **no SOQL**.
 
-- `EngagementDTO`
-- `AccountSummaryDTO`
-- `OpportunitySummaryDTO`
-- `ApprovalStepDTO`
-- `EngagementStatisticsDTO`
+### Service
 
-## Performance & Governor Limits
+- Owns all business rules:
+  - Which step is "next" when advancing an approval.
+  - Whether an Engagement should be promoted to Approved once all steps are
+    complete.
+  - How statistics are computed from raw collections.
+- Maps raw `sObject` collections from the Repository layer into DTOs.
+- Accepts repositories through the constructor, enabling dependency injection
+  in unit tests.
+- Contains **no SOQL or DML** — all data access is delegated to repositories.
 
-- No SOQL or DML inside loops; repositories accept and return collections.
-- The record workspace LWC issues a single Apex call (`getEngagementWorkspace`)
-  that aggregates engagement, accounts, opportunities, approval steps, and
-  statistics in one round trip, rather than one call per panel.
-- Repositories select only the fields required by their DTOs.
+### Repository
 
-## Security
+- The **only** layer that issues SOQL or DML.
+- Every query selects only the fields required by its corresponding DTO
+  (no `SELECT *`).
+- Every method accepts/returns a collection — never a single record in a loop.
+- Checks `Schema.sObjectType.isUpdateable()` before any DML and throws
+  `EngagementRepositoryException` if access is denied.
 
-- All Apex classes use `with sharing`.
-- Services check CRUD/FLS via `Schema.sObjectType` describe checks before
-  insert/update operations.
-- No hardcoded record Ids, credentials, or secrets.
+---
 
-## Error Handling
+## Data Transfer Objects (DTOs)
 
-Custom exception types (`EngagementServiceException`,
-`EngagementRepositoryException`) are thrown for predictable failure modes and
-translated into `AuraHandledException` at the Controller boundary so client
-code receives clean, user-presentable error messages.
+| DTO | Purpose |
+|---|---|
+| `EngagementDTO` | Core fields of `Engagement__c` |
+| `AccountSummaryDTO` | Account name, industry, and relationship type |
+| `OpportunitySummaryDTO` | Opportunity name, stage, amount, close date |
+| `ApprovalStepDTO` | Step order, status, approver name, completed date |
+| `EngagementStatisticsDTO` | Counts and totals computed server-side |
+| `EngagementWorkspaceDTO` | Aggregate of all DTOs above for one round-trip |
+
+All DTOs use explicit typed fields annotated `@AuraEnabled`. No
+`Map<String, Object>` is used anywhere in the project.
+
+---
+
+## Governor Limits Strategy
+
+| Risk | Mitigation |
+|---|---|
+| Multiple SOQL calls per page load | One `getEngagementWorkspace` wire call aggregates all panel data |
+| SOQL inside loops | Forbidden — all repositories query by collection (`WHERE Id IN :ids`) |
+| DML on individual records in a loop | Repositories batch-update via `List<sObject>` |
+| N+1 queries from child navigation | Cross-object fields (`Account__r.Name`) used in the same query |
+
+---
+
+## Security Model
+
+- Every Apex class declares `with sharing`, enforcing the running user's
+  sharing rules.
+- CRUD/FLS is verified with `Schema.sObjectType.isAccessible()` /
+  `isUpdateable()` describe checks before any DML.
+- The `Engagement_Hub_User` permission set grants the minimum object/field
+  access required to use the application.
+- No hardcoded record Ids, org URLs, credentials, or secrets appear anywhere
+  in the codebase.
+
+---
+
+## Test Strategy
+
+```
+EngagementRepositoryTest   ──► findById, findByIds, updateEngagements
+                                positive + null/empty/deleted scenarios
+
+EngagementServiceTest      ──► getWorkspace, advanceApproval
+                                positive + all negative paths
+                                (null Id, deleted record, no steps,
+                                all steps complete, amount rollup)
+
+EngagementControllerTest   ──► @AuraEnabled boundary
+                                positive + AuraHandledException on
+                                every error path
+
+TestDataFactory            ──► centralised record creation,
+                                keeps test classes focused on behaviour
+```
+
+Unit tests use `@TestSetup` to share insert cost across test methods in the
+same class. No external HTTP callouts are required; all tests run in isolation.
